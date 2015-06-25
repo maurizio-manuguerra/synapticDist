@@ -1,9 +1,17 @@
-test <- function(i1,i2, num.components=2, random.inits=1){
+#' @title test function
+#' Runs do_fits for a range of num.components and put results in a list ready for compareICs
+test <- function(i1=1, i2=4, max.num.components=2, random.inits = 3, plot=T){
+  fits.list = lapply(1:max.num.components, function(i)do_fits(i1, i2, num.components = i, random.inits = random.inits, plot=plot))
+  return(fits.list)
+}
+
+
+do_fits <- function(i1,i2, num.components=2, random.inits=1, plot=T){
   #library(bulkem, lib.loc='/Library/Frameworks/R.framework/Versions/3.2/Resources/')
   #devtools::install("/Users/manuguerra/Documents/git/bulkem")
-  library(statmod)
-  source("/Users/manuguerra/Documents/git/bulkem/R/bulkem.R")
-  source("/Users/manuguerra/Documents/git/bulkem/R/invgaussmixEM.R")
+  #library(statmod)
+  #source("/Users/manuguerra/Documents/git/bulkem/R/bulkem.R")
+  #source("/Users/manuguerra/Documents/git/bulkem/R/invgaussmixEM.R")
   Ds <- 0:20
   t1 <- data.sim[which(data.sim[,2]==i1),1]
   t2 <- data.sim[which(data.sim[,2]==i2),1]
@@ -13,10 +21,35 @@ test <- function(i1,i2, num.components=2, random.inits=1){
   #print('--- fits ---')
   #print(fits)
   fits <- bulkem2(datasets=xlist, num.components=num.components, random.inits=random.inits, use.gpu=FALSE, verbose=TRUE)
-  plot(Ds,sapply(fits,function(x)x$llik))
-  lines(Ds,sapply(fits,function(x)x$llik))
+  if (plot){
+    plot(Ds,sapply(fits,function(x)x$llik), ylab="log-likelihood", main=paste(num.components,"components"))
+    lines(Ds,sapply(fits,function(x)x$llik))
+  }
   return(fits)
 }
+
+test2 <- function(i1,i2, random.inits=1, plot=T){
+  #library(bulkem, lib.loc='/Library/Frameworks/R.framework/Versions/3.2/Resources/')
+  #devtools::install("/Users/manuguerra/Documents/git/bulkem")
+  library(statmod)
+  source("/Users/manuguerra/Documents/git/bulkem/R/bulkem.R")
+  source("/Users/manuguerra/Documents/git/bulkem/R/invgaussmixEM.R")
+  Ds <- 0:20
+  t1 <- data.sim[which(data.sim[,2]==i1),1]
+  t2 <- data.sim[which(data.sim[,2]==i2),1]
+  xlist=lapply(Ds, function(d)data.gen2(t1, t2, d))
+
+  #fits <- bulkem2(datasets=xlist)
+  #print('--- fits ---')
+  #print(fits)
+  fits <- bulkem2(datasets=xlist, num.components=num.components, random.inits=random.inits, use.gpu=FALSE, verbose=TRUE)
+  if (plot){
+    plot(Ds,sapply(fits,function(x)x$llik))
+    lines(Ds,sapply(fits,function(x)x$llik))
+  }
+  return(fits)
+}
+
 
 test.IG.exp <- function(i1,i2, num.components=2, random.inits=1){
   #library(bulkem, lib.loc='/Library/Frameworks/R.framework/Versions/3.2/Resources/')
@@ -61,9 +94,10 @@ test.IG.gamma <- function(i1,i2, num.components=2, random.inits=1){
 
 check.fit <- function(fit){
   require(statmod)
-  m=length(fit$mu)
+  m=ncol(fit$x)
   par(mfrow=c(m,1))
-  belongs_to <- apply(fit$member.prob,1,which.max)
+  #belongs_to <- apply(fit$member.prob,1,which.max)
+  belongs_to <- apply(fit$member.prob, 1, function(x)sample(1:m, size=1, prob=x))
   for (j in 1:m){
     end.scale = as.integer(qinvgauss(.95,mean=fit$mu[j],shape=fit$lambda[j]))
     ii <- which(belongs_to == j)
@@ -183,18 +217,61 @@ data.gen = function(t1, t2, d, num.components=2){
   return(matrix(c(isi22, rep(isi12, num.components-1)), ncol=num.components))
 }
 
+#' @title Returns data ready to feed bulkem2
+#' Takes two series of spike times, plus a temporal distance betweek neuron 1 and neuron 2, and computes t_22 and t_12.
+#' Cond1: If more than a neur1 spike occur in a give isi of neur2, all the spikes are considered.
+#' Cond2: If no spikes from neur1 occur in a give isi of neur2, t_12 = 0.
+data.gen2 = function(t1, t2, d){
+  t1=t1+d #shift/delay
+  l2 <- length(t2)
+  isi22 <- t2[2:l2]-t2[1:(l2-1)]
+  ii <- findInterval(t1,t2)
+  #%%%%%%%%%%%%%%%%%%%%%%
+  extremes <- (ii==0 | ii == length(t2))
+  t1 <- t1[!extremes]
+  ii <- ii[!extremes]
+  #%%%%%%%%%%%%%%%%%%%%%%
+  isi_mat <- matrix(0, nrow=nrows, ncol=ncols+1)
+  isi_mat[,1] <- isi22
+  #FIXME: not efficient
+  for (i in unique(ii)) {
+    isi_seq <- t2[i+1] - t1[which(ii==i)]
+    isi_mat[i, 2:(length(isi_seq)+1)] <- isi_seq
+  }
+  #%%%%%%%%%%%%%%%%%%%%%%
+  return(isi_mat)
+}
+
+
+
 AIC.neuromixEM <- function(fits){
   sapply(fits, function(x) -2*x$llik + 2*(1+length(x$mu[x$mu!=0])+length(x$lambda[x$lambda!=0])))
 }
 BIC.neuromixEM <- function(fits){
-  sapply(fits, function(x) -2*x$llik + nrow(x$x)*(1+length(x$mu[x$mu!=0])+length(x$lambda[x$lambda!=0])))
+  sapply(fits, function(x) -2*x$llik + log(nrow(x$x))*(1+length(x$mu[x$mu!=0])+length(x$lambda[x$lambda!=0])))
 }
-compareICs <- function(ics){
-  n <- length(ics)
-  cols=rainbow(n)
-  ics_names <- names(ics)
+AICem.neuromixEM <- function(fits){
+  sapply(fits, function(x) -2*x$Q)
+}
+AICem.ww.neuromixEM <- function(fits){ #http://www.smu.edu/~/media/Site/Dedman/Departments/Statistics/TechReports/TR303.ashx?la=en
+  sapply(fits, function(x) {m=ncol(x$x); d=2; return(-2*x$llik + 2*((m-1)+d*m+(d*m*(m-1)/2)))})
+}
+
+compareICs <- function(fits.list, criterion="AIC"){
+  if (criterion=='AIC')
+    ics <- sapply(fits.list, AIC.neuromixEM)
+  else if (criterion=='BIC')
+    ics <- sapply(fits.list, BIC.neuromixEM)
+  else if (criterion=='AICem')
+    ics <- sapply(fits.list, AICem.neuromixEM)
+  else if (criterion=='AICem.ww')
+    ics <- sapply(fits.list, AICem.ww.neuromixEM)
+  else
+    stop("Criterion not implemented")
+  n <- ncol(ics)
+  cols <- rainbow(n)
+  ics_names <- colnames(ics)
   if (any(is.null(ics_names))) ics_names <- paste(1:n)
-  ics_mat <- sapply(ics,function(x)x)
-  matplot(ics_mat, col=cols, lty=1, t='l')
+  matplot(ics, col=cols, lty=1, t='l')
   legend("topleft", col=cols, ics_names, bg="white", lwd=1)
 }
