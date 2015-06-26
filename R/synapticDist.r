@@ -1,3 +1,13 @@
+test_extended <- function(ii, i0, d, random.inits = 3, plot=T){
+  t0 <- data.sim[which(data.sim[,2]==i0),1]
+  ti <- lapply(ii, function(i)data.sim[which(data.sim[,2]==i),1])
+  isi=data.gen.extended(ti,t0,d)
+  xlist=list(isi)
+  fits <- bulkem2(datasets=xlist, num.components=length(ii)+1, random.inits = random.inits, use.gpu = F)
+  #check.fit(fits[[1]], mfrow=F)
+  return(fits[[1]])
+}
+
 #' @title test function
 #' Runs do_fits for a range of num.components and put results in a list ready for compareICs
 test <- function(i1=1, i2=4, max.num.components=2, random.inits = 3, plot=T){
@@ -92,10 +102,10 @@ test.IG.gamma <- function(i1,i2, num.components=2, random.inits=1){
 }
 
 
-check.fit <- function(fit){
+check.fit <- function(fit, mfrow=T){
   require(statmod)
   m=ncol(fit$x)
-  par(mfrow=c(m,1))
+  if(mfrow) par(mfrow=c(m,1))
   #belongs_to <- apply(fit$member.prob,1,which.max)
   belongs_to <- apply(fit$member.prob, 1, function(x)sample(1:m, size=1, prob=x))
   for (j in 1:m){
@@ -108,7 +118,7 @@ check.fit <- function(fit){
     scale <- length(ii)
     lines(xx,fx*scale, col="red")
   }
-  par(mfrow=c(1,1))
+  if(mfrow) par(mfrow=c(1,1))
 }
 
 check.fit.IG.exp <- function(fit){
@@ -194,9 +204,9 @@ which.machine <- function(){
 
 #' @title Returns data ready to feed bulkem2
 #' Takes two series of spike times, plus a temporal distance betweek neuron 1 and neuron 2, and computes t_22 and t_12.
-#' Cond1: If more than a neur1 spike occur in a give isi of neur2, only the last spike is considered.
+#' Cond1: If more than a neur1 spike occur in a given isi of neur2, only the last spike is considered.
 #' Cond2: If no spikes from neur1 occur in a give isi of neur2, t_12 = 0.
-data.gen = function(t1, t2, d, num.components=2){
+data.gen <- function(t1, t2, d, num.components=2){
   t1=t1+d #shift/delay
   l2 <- length(t2)
   isi22 <- t2[2:l2]-t2[1:(l2-1)]
@@ -221,7 +231,7 @@ data.gen = function(t1, t2, d, num.components=2){
 #' Takes two series of spike times, plus a temporal distance betweek neuron 1 and neuron 2, and computes t_22 and t_12.
 #' Cond1: If more than a neur1 spike occur in a give isi of neur2, all the spikes are considered.
 #' Cond2: If no spikes from neur1 occur in a give isi of neur2, t_12 = 0.
-data.gen2 = function(t1, t2, d){
+data.gen2 <- function(t1, t2, d){
   t1=t1+d #shift/delay
   l2 <- length(t2)
   isi22 <- t2[2:l2]-t2[1:(l2-1)]
@@ -241,6 +251,38 @@ data.gen2 = function(t1, t2, d){
   #%%%%%%%%%%%%%%%%%%%%%%
   return(isi_mat)
 }
+
+
+#' @title Returns the interspike intervals of m neurons firing (ti) on a specific neuron (t0)
+#' Takes 1+m series of spike times,  and computes a matrix nX(m+1), where m is the number of neuron firing on neur 0, and n is the number of isi of neur 0.
+#' d is an m-vector
+#' Cond1: If more than a neur1 spike occur in a given isi of neur2, only the last spike is considered.
+#' Cond2: If no spikes from neur1 occur in a give isi of neur2, t_12 = 0.
+data.gen.extended <- function(ti, t0, d){
+  m=length(ti)
+  ti=lapply(1:m, function(i)ti[[i]]+d[i]) #shift/delay
+  l0 <- length(t0)
+  isi <- matrix(0, nrow=l0-1, ncol=m+1)
+  isi[,1] <- t0[2:l0]-t0[1:(l0-1)]
+  for (j in 1:m){
+    t1 <- ti[[j]]
+    ii <- findInterval(t1,t0)
+  #%%%%%%%%%%%%%%%%%%%%%%
+    extremes <- (ii==0 | ii == length(t0))
+    t1 <- t1[!extremes]
+    ii <- ii[!extremes]
+  #%%%%%%%%%%%%%%%%%%%%%%
+    dupl <- duplicated(ii, fromLast=T) #See description (cond1)
+    t1 <- t1[!dupl]
+    ii <- ii[!dupl]
+  #%%%%%%%%%%%%%%%%%%%%%%
+    l1 <- length(ii)
+    isi[ii,j+1] <- t0[ii+1] - t1
+  #%%%%%%%%%%%%%%%%%%%%%%
+  }
+  return(isi)
+}
+
 
 
 
