@@ -1,3 +1,4 @@
+#' The extended suffix means that all the neurons inferring on the target are considered.
 test_extended <- function(ii, i0, d, random.inits = 3, plot=T){
   t0 <- data.sim[which(data.sim[,2]==i0),1]
   ti <- lapply(ii, function(i)data.sim[which(data.sim[,2]==i),1])
