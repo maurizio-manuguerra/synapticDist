@@ -1,4 +1,20 @@
-#' @title test function
+test <- function(dists=0:20){
+  i0=4
+  ii=(1:6)[-4]
+  m=length(ii)
+  fits.list=list()
+  for (i in 1:m){
+    Ds=matrix(0,nrow=length(dists),ncol=m)
+    Ds[,i] = dists
+    Ds=split(Ds,row(Ds))
+    fits.list[[i]]=do_fits(i0,ii,Ds)
+  }
+  names(fits.list) = 1:m
+  return(fits.list)
+}
+
+
+#' @title do_fits function
 #' for a range of distances Ds runs bulkem2 on matrices Nx(M+1), where M is the number of neurons inferring on the target.
 #' the output is a list of the same length of Ds, where each element is the results of the analysis performed on the data sets obtained using Ds in data.gen
 #' @param i0 the target neuron (index)
@@ -6,24 +22,26 @@
 #' @param Ds a list of M-vectors, giving the distances of the M neurons from the target
 #' @param random.inits the number of random initializations to star the EM algorithm. Defauls to 3.
 #' @param plot a logical variable. If TRUE (the default) a plot of the values of the log-likelihoods for each vector of Ds id created.
-test <- function(i0, ii, Ds, random.inits = 3, plot=T){
+do_fits <- function(i0, ii, Ds, random.inits = 3, plot=T){
   t0 <- data.sim[which(data.sim[,2]==i0),1]
   ti <- lapply(ii, function(i)data.sim[which(data.sim[,2]==i),1])
   xlist <- lapply(Ds, function(d)data.gen(t0, ti, d))
-  fits <- bulkem2(datasets=xlist, num.components=length(ii)+1, random.inits = random.inits, use.gpu = F)
-  if (plot) {
-    n <- length(fits)
-    cols <- rainbow(n)
-    fits_names <- paste(Ds)
-    fits_pch <- 1:n
-    par(mar=c(5.1, 4.1, 4.1, 8.1))
-    plot(sapply(fits,function(x)x$llik), col=cols, pch=fits_pch, ylab="log-likelihood", main=paste(length(ti)," neurons inferring on #",i0,sep=''))
-    legend("topright", inset=c(-0.6,0), legend=fits_names, col=cols, pch=fits_pch, bg="white", xpd=TRUE)
-    par(mar=c(5.1, 4.1, 4.1, 2.1))
-  }
+  fits <- bulkem2(datasets=xlist, num.components=length(ii)+1, random.inits = random.inits, use.gpu = F, verbose=TRUE)
+  if (plot) do_plots(fits, fits.names=paste(Ds))
   return(fits)
 }
 
+do_plots <- function(fits, fits_names=NULL){
+  n <- length(fits)
+  cols <- rainbow(n)
+  if (is.null(fits_names)) fits_names=names(fits)
+  if (is.null(fits_names)) fits_names=paste(1:n)
+  fits_pch <- 1:n
+  par(mar=c(5.1, 4.1, 4.1, 12.1))
+  plot(sapply(fits,function(x)x$llik), col=cols, pch=fits_pch, ylab="log-likelihood", main=paste(length(ti)," neurons inferring on #",i0,sep=''))
+  legend("topright", inset=c(-0.3*length(Ds),0), legend=fits_names, col=cols, pch=fits_pch, bg="white", xpd=TRUE)
+  par(mar=c(5.1, 4.1, 4.1, 2.1))
+}
 
 test.IG.exp <- function(i1,i2, num.components=2, random.inits=1){
   #library(bulkem, lib.loc='/Library/Frameworks/R.framework/Versions/3.2/Resources/')
