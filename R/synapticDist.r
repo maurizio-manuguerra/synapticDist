@@ -4,6 +4,7 @@ test <- function(dists=0:20){
   m=length(ii)
   fits.list=list()
   for (i in 1:m){
+    cat("Processing neuron ", i, "of ", m, "neurons.\n")
     Ds=matrix(0,nrow=length(dists),ncol=m)
     Ds[,i] = dists
     Ds=split(Ds,row(Ds))
@@ -26,7 +27,7 @@ do_fits <- function(i0, ii, Ds, random.inits = 3, plot=T){
   t0 <- data.sim[which(data.sim[,2]==i0),1]
   ti <- lapply(ii, function(i)data.sim[which(data.sim[,2]==i),1])
   xlist <- lapply(Ds, function(d)data.gen(t0, ti, d))
-  fits <- bulkem2(datasets=xlist, num.components=length(ii)+1, random.inits = random.inits, use.gpu = F, verbose=TRUE)
+  fits <- bulkem2(datasets=xlist, num.components=length(ii)+1, random.inits = random.inits, use.gpu = F, verbose=FALSE)
   if (plot) do_plots(fits, fits.names=paste(Ds))
   return(fits)
 }
