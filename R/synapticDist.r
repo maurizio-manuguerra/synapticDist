@@ -7,6 +7,7 @@ test <- function(i0=4, ii=c(1,2,3,5,6), dists=0:20){
     Ds[,i] = dists
     Ds=split(Ds,row(Ds))
     fits.list[[i]]=do_fits(i0,ii,Ds)
+    save(fits.list, file="fits.list.RData")
   }
   names(fits.list) = 1:m
   return(fits.list)
