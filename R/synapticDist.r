@@ -42,7 +42,7 @@ do_plots <- function(fits, fits_names=NULL){
   fits_pch <- 1:n
   par(mar=c(5.1, 4.1, 4.1, 12.1))
   plot(sapply(fits,function(x)x$llik), col=cols, pch=fits_pch, ylab="log-likelihood")
-  legend("topright", inset=c(-0.3*length(Ds),0), legend=fits_names, col=cols, pch=fits_pch, bg="white", xpd=TRUE)
+  legend("topright", inset=c(-0.3*n,0), legend=fits_names, col=cols, pch=fits_pch, bg="white", xpd=TRUE)
   par(mar=c(5.1, 4.1, 4.1, 2.1))
 }
 
