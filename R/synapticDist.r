@@ -28,7 +28,9 @@ do_fits <- function(i0, ii, Ds, random.inits = 3, plot=T){
   ti <- lapply(ii, function(i)data.sim[which(data.sim[,2]==i),1])
   xlist <- lapply(Ds, function(d)data.gen(t0, ti, d))
   fits <- bulkem2(datasets=xlist, num.components=length(ii)+1, random.inits = random.inits, use.gpu = F, verbose=FALSE)
-  if (plot) do_plots(fits, fits_names=paste(Ds))
+  #Add info on Ds
+  names(fits) <- paste(Ds)
+  if (plot) do_plots(fits)
   return(fits)
 }
 
