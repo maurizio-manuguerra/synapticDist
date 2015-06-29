@@ -1,62 +1,25 @@
-#' The extended suffix means that all the neurons inferring on the target are considered.
-test_extended <- function(ii, i0, d, random.inits = 3, plot=T){
+#' @title test function
+#' for a range of distances Ds runs bulkem2 on matrices Nx(M+1), where M is the number of neurons inferring on the target.
+#' the output is a list of the same length of Ds, where each element is the results of the analysis performed on the data sets obtained using Ds in data.gen
+#' @param i0 the target neuron (index)
+#' @param ii the inferring neurons (a vector of indexes)
+#' @param Ds a list of M-vectors, giving the distances of the M neurons from the target
+#' @param random.inits the number of random initializations to star the EM algorithm. Defauls to 3.
+#' @param plot a logical variable. If TRUE (the default) a plot of the values of the log-likelihoods for each vector of Ds id created.
+test <- function(i0, ii, Ds, random.inits = 3, plot=T){
   t0 <- data.sim[which(data.sim[,2]==i0),1]
   ti <- lapply(ii, function(i)data.sim[which(data.sim[,2]==i),1])
-  isi=data.gen.extended(ti,t0,d)
-  xlist=list(isi)
+  xlist <- lapply(Ds, function(d)data.gen(t0, ti, d))
   fits <- bulkem2(datasets=xlist, num.components=length(ii)+1, random.inits = random.inits, use.gpu = F)
-  #check.fit(fits[[1]], mfrow=F)
-  return(fits[[1]])
-}
-
-#' @title test function
-#' Runs do_fits for a range of num.components and put results in a list ready for compareICs
-test <- function(i1=1, i2=4, max.num.components=2, random.inits = 3, plot=T){
-  fits.list = lapply(1:max.num.components, function(i)do_fits(i1, i2, num.components = i, random.inits = random.inits, plot=plot))
-  return(fits.list)
-}
-
-
-do_fits <- function(i1,i2, num.components=2, random.inits=1, plot=T){
-  #library(bulkem, lib.loc='/Library/Frameworks/R.framework/Versions/3.2/Resources/')
-  #devtools::install("/Users/manuguerra/Documents/git/bulkem")
-  #library(statmod)
-  #source("/Users/manuguerra/Documents/git/bulkem/R/bulkem.R")
-  #source("/Users/manuguerra/Documents/git/bulkem/R/invgaussmixEM.R")
-  Ds <- 0:20
-  t1 <- data.sim[which(data.sim[,2]==i1),1]
-  t2 <- data.sim[which(data.sim[,2]==i2),1]
-  xlist=lapply(Ds, function(d)data.gen(t1, t2, d, num.components=num.components))
-
-  #fits <- bulkem2(datasets=xlist)
-  #print('--- fits ---')
-  #print(fits)
-  fits <- bulkem2(datasets=xlist, num.components=num.components, random.inits=random.inits, use.gpu=FALSE, verbose=TRUE)
-  if (plot){
-    plot(Ds,sapply(fits,function(x)x$llik), ylab="log-likelihood", main=paste(num.components,"components"))
-    lines(Ds,sapply(fits,function(x)x$llik))
-  }
-  return(fits)
-}
-
-test2 <- function(i1,i2, random.inits=1, plot=T){
-  #library(bulkem, lib.loc='/Library/Frameworks/R.framework/Versions/3.2/Resources/')
-  #devtools::install("/Users/manuguerra/Documents/git/bulkem")
-  library(statmod)
-  source("/Users/manuguerra/Documents/git/bulkem/R/bulkem.R")
-  source("/Users/manuguerra/Documents/git/bulkem/R/invgaussmixEM.R")
-  Ds <- 0:20
-  t1 <- data.sim[which(data.sim[,2]==i1),1]
-  t2 <- data.sim[which(data.sim[,2]==i2),1]
-  xlist=lapply(Ds, function(d)data.gen2(t1, t2, d))
-
-  #fits <- bulkem2(datasets=xlist)
-  #print('--- fits ---')
-  #print(fits)
-  fits <- bulkem2(datasets=xlist, num.components=num.components, random.inits=random.inits, use.gpu=FALSE, verbose=TRUE)
-  if (plot){
-    plot(Ds,sapply(fits,function(x)x$llik))
-    lines(Ds,sapply(fits,function(x)x$llik))
+  if (plot) {
+    n <- length(fits)
+    cols <- rainbow(n)
+    fits_names <- paste(Ds)
+    fits_pch <- 1:n
+    par(mar=c(5.1, 4.1, 4.1, 8.1))
+    plot(sapply(fits,function(x)x$llik), col=cols, pch=fits_pch, ylab="log-likelihood", main=paste(length(ti)," neurons inferring on #",i0,sep=''))
+    legend("topright", inset=c(-0.6,0), legend=fits_names, col=cols, pch=fits_pch, bg="white", xpd=TRUE)
+    par(mar=c(5.1, 4.1, 4.1, 2.1))
   }
   return(fits)
 }
@@ -184,7 +147,6 @@ list_rats_recs2 <- function(dir0='../../data'){
 	return(list(rat,rec))
 }
 
-
 which.machine <- function(){
 	t1 <- try(system("uname -n", intern = TRUE))
 	if (t1=="Maurizio-Manuguerras-Mac-mini.local"){
@@ -203,63 +165,13 @@ which.machine <- function(){
 	return(m)
 }
 
-#' @title Returns data ready to feed bulkem2
-#' Takes two series of spike times, plus a temporal distance betweek neuron 1 and neuron 2, and computes t_22 and t_12.
-#' Cond1: If more than a neur1 spike occur in a given isi of neur2, only the last spike is considered.
-#' Cond2: If no spikes from neur1 occur in a give isi of neur2, t_12 = 0.
-data.gen <- function(t1, t2, d, num.components=2){
-  t1=t1+d #shift/delay
-  l2 <- length(t2)
-  isi22 <- t2[2:l2]-t2[1:(l2-1)]
-  ii <- findInterval(t1,t2)
-  #%%%%%%%%%%%%%%%%%%%%%%
-  extremes <- (ii==0 | ii == length(t2))
-  t1 <- t1[!extremes]
-  ii <- ii[!extremes]
-  #%%%%%%%%%%%%%%%%%%%%%%
-  dupl <- duplicated(ii, fromLast=T) #See description (cond1)
-  t1 <- t1[!dupl]
-  ii <- ii[!dupl]
-  #%%%%%%%%%%%%%%%%%%%%%%
-  l1 <- length(ii)
-  isi12 <- rep(0, l2-1) #See description (cond2)
-  isi12[ii] <- t2[ii+1] - t1
-  #%%%%%%%%%%%%%%%%%%%%%%
-  return(matrix(c(isi22, rep(isi12, num.components-1)), ncol=num.components))
-}
-
-#' @title Returns data ready to feed bulkem2
-#' Takes two series of spike times, plus a temporal distance betweek neuron 1 and neuron 2, and computes t_22 and t_12.
-#' Cond1: If more than a neur1 spike occur in a give isi of neur2, all the spikes are considered.
-#' Cond2: If no spikes from neur1 occur in a give isi of neur2, t_12 = 0.
-data.gen2 <- function(t1, t2, d){
-  t1=t1+d #shift/delay
-  l2 <- length(t2)
-  isi22 <- t2[2:l2]-t2[1:(l2-1)]
-  ii <- findInterval(t1,t2)
-  #%%%%%%%%%%%%%%%%%%%%%%
-  extremes <- (ii==0 | ii == length(t2))
-  t1 <- t1[!extremes]
-  ii <- ii[!extremes]
-  #%%%%%%%%%%%%%%%%%%%%%%
-  isi_mat <- matrix(0, nrow=nrows, ncol=ncols+1)
-  isi_mat[,1] <- isi22
-  #FIXME: not efficient
-  for (i in unique(ii)) {
-    isi_seq <- t2[i+1] - t1[which(ii==i)]
-    isi_mat[i, 2:(length(isi_seq)+1)] <- isi_seq
-  }
-  #%%%%%%%%%%%%%%%%%%%%%%
-  return(isi_mat)
-}
-
-
 #' @title Returns the interspike intervals of m neurons firing (ti) on a specific neuron (t0)
 #' Takes 1+m series of spike times,  and computes a matrix nX(m+1), where m is the number of neuron firing on neur 0, and n is the number of isi of neur 0.
 #' d is an m-vector
-#' Cond1: If more than a neur1 spike occur in a given isi of neur2, only the last spike is considered.
-#' Cond2: If no spikes from neur1 occur in a give isi of neur2, t_12 = 0.
-data.gen.extended <- function(ti, t0, d){
+#' Cond1: If more than a neur1 spike occur in a given isi of neur0, only the last spike is considered.
+#' Cond2: If no spikes from neur1 occur in a given isi of neur0, t_12 = 0.
+#' TODO: optimize the loop
+data.gen <- function(t0, ti, d){
   m=length(ti)
   ti=lapply(1:m, function(i)ti[[i]]+d[i]) #shift/delay
   l0 <- length(t0)
