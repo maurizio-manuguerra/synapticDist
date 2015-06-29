@@ -1,6 +1,4 @@
-test <- function(dists=0:20){
-  i0=4
-  ii=(1:6)[-4]
+test <- function(i0=4, ii=c(1,2,3,5,6), dists=0:20){
   m=length(ii)
   fits.list=list()
   for (i in 1:m){
