@@ -85,7 +85,7 @@ invgaussmixEM <- function(x_expanded, num.components=2, initials=NULL, max.iters
   ii = which(member.prob>0)
   Q <- sum(member.prob[ii] * log(x.prob[ii]))
   #result <- list(x=x_expanded, alpha=alpha, mu=mu, lambda=lambda, member.prob=member.prob, llik=log.lik, Q=Q, fit_success=TRUE)
-  result <- list(alpha=alpha, mu=mu, lambda=lambda, member.prob=member.prob, llik=log.lik, Q=Q, fit_success=TRUE)
+  result <- list(alpha=alpha, mu=mu, lambda=lambda, member.prob=round(member.prob, 3), llik=log.lik, Q=Q, fit_success=TRUE)
   class(result) <- "mixEM"
   result
 }
