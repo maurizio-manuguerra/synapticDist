@@ -91,7 +91,7 @@ test.IG.gamma <- function(i1,i2, num.components=2, random.inits=1){
 
 check.fit <- function(fit, mfrow=T){
   require(statmod)
-  m=ncol(fit$x)
+  m=length(fit$alpha)
   if(mfrow) par(mfrow=c(m,1))
   #belongs_to <- apply(fit$member.prob,1,which.max)
   belongs_to <- apply(fit$member.prob, 1, function(x)sample(1:m, size=1, prob=x))
