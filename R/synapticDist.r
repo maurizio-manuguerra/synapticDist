@@ -8,7 +8,7 @@ test <- function(i0=4, ii=c(1,2,3,5,6), dists=0:20, save.fit=T){
     Ds=split(Ds,row(Ds))
     fits.list[[i]]=do_fits(i0,ii,Ds)
     if (save.fit) { #fits.list is going to grow. Better to save each fit in its file and delete fits.list[[i]]
-      save(fits.list, file=paste("fit.",i,".RData",sep='')
+      save(fits.list, file=paste("fit.",i,".RData",sep=''))
       fits.list[[i]] <- NULL
     }
   }
