@@ -163,12 +163,6 @@ bulkem2 <- function(datasets, num.components=2, max.iters=100, random.inits=1, u
 
           initials[[m]] <- ml
         }
-        #initials[[1]]$alpha=0.95
-        #initials[[1]]$mu=200
-        #initials[[1]]$lambda=800
-        #initials[[2]]$alpha=0.05
-        #initials[[2]]$mu=10
-        #initials[[2]]$lambda=10
         # perform the fit
         fit <- invgaussmixEM(xmat, initials=initials, num.components=num.components, max.iters=max.iters, epsilon=epsilon)
         # print(paste0('fit llik: ', fit$llik, ', alpha: ', fit$alpha, ', lambda=', fit$lambda, ', mu=', fit$mu))
