@@ -12,8 +12,10 @@ test <- function(i0=4, ii=c(1,2,3,5,6), dists=0:20, save.fit=T){
       fits.list[[i]] <- NULL
     }
   }
-  names(fits.list) = 1:m
-  return(fits.list)
+  if (!save.fit){
+    names(fits.list) = 1:m
+    return(fits.list)
+  }
 }
 
 
@@ -31,7 +33,12 @@ do_fits <- function(i0, ii, Ds, random.inits = 3, plot=T){
   xlist <- lapply(Ds, function(d)data.gen(t0, ti, d))
   fits <- bulkem2(datasets=xlist, num.components=length(ii)+1, random.inits = random.inits, use.gpu = F, verbose=FALSE)
   #Add info on Ds
-  names(fits) <- paste(Ds)
+  for (ifit in 1:length(fits)) {
+    fits[[ifit]]$target = i0
+    fits[[ifit]]$inferring = ii
+    fits[[ifit]]$distances = Ds[[ifit]]
+  }
+  #names(fits) <- paste(Ds)
   if (plot) do_plots(fits)
   return(fits)
 }
@@ -91,18 +98,25 @@ test.IG.gamma <- function(i1,i2, num.components=2, random.inits=1){
 
 check.fit <- function(fit, mfrow=T){
   require(statmod)
-  m=length(fit$alpha)
+  m=ncol(fit$member.prob)
+  i0 <- fit$target
+  ii <- fit$inferring
+  d <- fit$distances
+  t0 <- data.sim[which(data.sim[,2]==i0),1]
+  ti <- lapply(ii, function(i)data.sim[which(data.sim[,2]==i),1])
+  x <- data.gen(t0, ti, d)
+
   if(mfrow) par(mfrow=c(m,1))
   #belongs_to <- apply(fit$member.prob,1,which.max)
   belongs_to <- apply(fit$member.prob, 1, function(x)sample(1:m, size=1, prob=x))
   for (j in 1:m){
     end.scale = as.integer(qinvgauss(.95,mean=fit$mu[j],shape=fit$lambda[j]))
-    ii <- which(belongs_to == j)
-    f2 <- fit$x[ii,j]
+    jj <- which(belongs_to == j)
+    f2 <- fit$x[jj,j]
     hist(f2[f2<end.scale],end.scale, main=j)
     xx=0:end.scale
     fx=dinvgauss(xx,mean=fit$mu[j],shape=fit$lambda[j])
-    scale <- length(ii)
+    scale <- length(jj)
     lines(xx,fx*scale, col="red")
   }
   if(mfrow) par(mfrow=c(1,1))
