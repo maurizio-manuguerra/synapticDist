@@ -1,15 +1,59 @@
+find_best_model <- function(){
+  dists=NULL
+  lliks=NULL
+  cat("Analysing\n")
+  for (i in 1:99){
+    cat(i,".. ")
+    load(paste("fits/fit.",i,".RData",sep=''))
+    fits=fits.list[[i]]
+    ll=sapply(fits,function(x)x$llik)
+    dists=c(dists,which.max(ll)-1)
+    lliks=c(lliks,max(ll))
+  }
+  i0=fits[[1]]$target
+  ii=fits[[1]]$inferring
+
+  dists = c(dists[1:i0],0,dists[(i0+1):99])
+  lliks = c(lliks[1:i0],-Inf,lliks[(i0+1):99])
+  hist(lliks,100)
+  llik0 = readline("Threshold llik: ")
+  connected=which(lliks > llik0)
+  connected[connected>i0]=connected[connected>i0]+1
+  dists=rep(0,100)
+  dists[connected]=res$dists[connected]
+  best_fit=do_fits(i0,ii,list(dists))
+  return(best_fit)
+  #return(list(dists=dists,lliks=lliks))
+}
+script2 <- function(best_fit){
+  xx=best_fit[[1]]$member.prob
+  for (i in 1:5) {
+    hist(apply(xx,1,function(x)x[order(x,decreasing=T)[i]]))
+    readline("Enter to continue")
+  }
+  prob0 <- readline("Threshold probability: ")
+  polys=apply(best_fit[[1]]$member.prob,1,function(x)which(x>prob0))
+  lpolys=sapply(polys,function(x)length(x)) #array of number of neurons possibly contributing to a spike
+  reps=lapply(polys,function(x)which(polys %in% list(x)))
+  nreps=sapply(reps,length) #array of indexes for which a possible poly group shows itself
+  similarity50perc=lapply(polys,function(x)which(similarity(x,polys)>.5))
+  #plot(lpolys,nreps)
+}
+
+similarity <- function(x,l){
+  return(sapply(l,function(lx)2*sum(x %in% lx)/(length(x)+length(lx))))
+}
+
 test <- function(i0=4, ii=c(1,2,3,5,6), dists=0:20, save.fit=T){
   m=length(ii)
-  fits.list=list()
   for (i in 1:m){
     cat("Processing neuron", i, "of", m, "neurons.\n")
     Ds=matrix(0,nrow=length(dists),ncol=m)
     Ds[,i] = dists
     Ds=split(Ds,row(Ds))
-    fits.list[[i]]=do_fits(i0,ii,Ds)
+    fits=do_fits(i0,ii,Ds)
     if (save.fit) { #fits.list is going to grow. Better to save each fit in its file and delete fits.list[[i]]
-      save(fits.list, file=paste("fit.",i,".RData",sep=''))
-      fits.list[[i]] <- NULL
+      save(fits, file=paste("fit.",i,".RData",sep=''))
     }
   }
   if (!save.fit){
@@ -49,9 +93,10 @@ do_plots <- function(fits, fits_names=NULL){
   if (is.null(fits_names)) fits_names=names(fits)
   if (is.null(fits_names)) fits_names=paste(1:n)
   fits_pch <- 1:n
-  par(mar=c(5.1, 4.1, 4.1, 12.1))
+  legend_width <- max(nchar(fits_names))
+  par(mar=c(5.1, 4.1, 4.1, (2.2+0.61*legend_width)))
   plot(sapply(fits,function(x)x$llik), col=cols, pch=fits_pch, ylab="log-likelihood")
-  legend("topright", inset=c(-0.3*n,0), legend=fits_names, col=cols, pch=fits_pch, bg="white", xpd=TRUE)
+  legend("topright", inset=c(-(0.08+0.031*legend_width),0), legend=fits_names, col=cols, pch=fits_pch, bg="white", xpd=TRUE)
   par(mar=c(5.1, 4.1, 4.1, 2.1))
 }
 
@@ -96,7 +141,7 @@ test.IG.gamma <- function(i1,i2, num.components=2, random.inits=1){
 }
 
 
-check.fit <- function(fit, mfrow=T){
+check.fit <- function(fit, mfrow=T, pdf=F){
   require(statmod)
   m=ncol(fit$member.prob)
   i0 <- fit$target
@@ -107,19 +152,23 @@ check.fit <- function(fit, mfrow=T){
   x <- data.gen(t0, ti, d)
 
   if(mfrow) par(mfrow=c(m,1))
+  if(pdf) pdf(file="check.fit.pdf")
   #belongs_to <- apply(fit$member.prob,1,which.max)
   belongs_to <- apply(fit$member.prob, 1, function(x)sample(1:m, size=1, prob=x))
   for (j in 1:m){
     end.scale = as.integer(qinvgauss(.95,mean=fit$mu[j],shape=fit$lambda[j]))
     jj <- which(belongs_to == j)
-    f2 <- fit$x[jj,j]
-    hist(f2[f2<end.scale],end.scale, main=j)
-    xx=0:end.scale
-    fx=dinvgauss(xx,mean=fit$mu[j],shape=fit$lambda[j])
-    scale <- length(jj)
-    lines(xx,fx*scale, col="red")
+    if (length(jj)>20){
+      f2 <- x[jj,j]
+      hist(f2[f2<end.scale],end.scale, main=j)
+      xx=0:end.scale
+      fx=dinvgauss(xx,mean=fit$mu[j],shape=fit$lambda[j])
+      scale <- length(jj)
+      lines(xx,fx*scale, col="red")
+    }
   }
   if(mfrow) par(mfrow=c(1,1))
+  if(pdf) graphics.off()
 }
 
 check.fit.IG.exp <- function(fit){
