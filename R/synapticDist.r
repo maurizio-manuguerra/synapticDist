@@ -13,25 +13,28 @@ find_best_model <- function(){
   i0=fits[[1]]$target
   ii=fits[[1]]$inferring
 
-  dists = c(dists[1:i0],0,dists[(i0+1):99])
-  lliks = c(lliks[1:i0],-Inf,lliks[(i0+1):99])
+  dists_compl = c(dists[1:i0],0,dists[(i0+1):99])
+  lliks_compl = c(lliks[1:i0],-Inf,lliks[(i0+1):99])
   hist(lliks,100)
-  llik0 = readline("Threshold llik: ")
-  connected=which(lliks > llik0)
-  connected[connected>i0]=connected[connected>i0]+1
-  dists=rep(0,100)
-  dists[connected]=res$dists[connected]
+  #res = find_best_model_AIC(lliks,dists)
+  llik0 = as.numeric(readline("Threshold llik: "))
+  connected_compl = which(lliks_compl > llik0)
+  not.connected=which(lliks < llik0)
+  dists[not.connected]=0
   best_fit=do_fits(i0,ii,list(dists))
   return(best_fit)
   #return(list(dists=dists,lliks=lliks))
 }
+
+find_best_model_AIC <- function(lliks,dists)
+
 script2 <- function(best_fit){
   xx=best_fit[[1]]$member.prob
   for (i in 1:5) {
     hist(apply(xx,1,function(x)x[order(x,decreasing=T)[i]]))
     readline("Enter to continue")
   }
-  prob0 <- readline("Threshold probability: ")
+  prob0 <- as.numeric(readline("Threshold probability: "))
   polys=apply(best_fit[[1]]$member.prob,1,function(x)which(x>prob0))
   lpolys=sapply(polys,function(x)length(x)) #array of number of neurons possibly contributing to a spike
   reps=lapply(polys,function(x)which(polys %in% list(x)))
@@ -94,9 +97,9 @@ do_plots <- function(fits, fits_names=NULL){
   if (is.null(fits_names)) fits_names=paste(1:n)
   fits_pch <- 1:n
   legend_width <- max(nchar(fits_names))
-  par(mar=c(5.1, 4.1, 4.1, (2.2+0.61*legend_width)))
-  plot(sapply(fits,function(x)x$llik), col=cols, pch=fits_pch, ylab="log-likelihood")
-  legend("topright", inset=c(-(0.08+0.031*legend_width),0), legend=fits_names, col=cols, pch=fits_pch, bg="white", xpd=TRUE)
+  par(mar=c(5.1, 4.1, 4.1, (2.2+1.5*legend_width)))
+  plot(x=(0:(length(fits)-1)), sapply(fits,function(x)x$llik), pch=fits_pch, xlab="travel time [ms]", ylab="log-likelihood")
+  legend("topright", inset=c(-(0.08+0.01*legend_width),0), legend=fits_names, pch=fits_pch, bg="white", xpd=TRUE)
   par(mar=c(5.1, 4.1, 4.1, 2.1))
 }
 
